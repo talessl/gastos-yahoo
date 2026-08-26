@@ -1,28 +1,22 @@
 import yfinance as yf
-from domain.interfaces.ativo_financeiro_interface import IStockRepository
+from src.domain.interfaces.repository_interfaces import IAcaoRepository
 
 
-class YahooFinanceRepository(IStockRepository):
-    def buscar_historico(self, ticker) -> dict:
-        try:
-            acao = yf.Ticker(ticker)
-            historico = acao.history(period="60d")
+class YahooFinanceRepository(IAcaoRepository):
+    def buscar_historico(self, ticker: str) -> dict:
+        # O Fundamentus devolve "MGLU3", mas o Yahoo exige "MGLU3.SA". Adicionamos o sufixo.
+        ticker_yahoo = f"{ticker}.SA" if not ticker.endswith(".SA") else ticker
 
-            if historico.empty:
-                raise ValueError(
-                    f"Nenhum dado encontrado para o ticker {ticker}")
+        acao = yf.Ticker(ticker_yahoo)
+        historico = acao.history(period="60d")
 
-            # Extrai o preço mais recente e a lista de preços passados
-            preco_atual = float(historico['Close'].iloc[-1])
-            precos_fechamento = historico['Close'].tolist()
+        if historico.empty:
+            raise ValueError(f"Nenhum dado encontrado para {ticker_yahoo}")
 
-            # Retorna os dados crus formatados para o Caso de Uso
-            return {
-                "ticker": ticker,
-                "preco_atual": preco_atual,
-                "historico_fechamento": precos_fechamento
-            }
-
-        except Exception as e:
-            # Em uma arquitetura real, você pode criar um erro customizado aqui
-            raise Exception(f"Erro ao buscar dados no Yahoo Finance: {str(e)}")
+        return {
+            "ticker": ticker,
+            "preco_atual": float(historico['Close'].iloc[-1]),
+            "high": historico['High'].tolist(),
+            "low": historico['Low'].tolist(),
+            "close": historico['Close'].tolist()
+        }
